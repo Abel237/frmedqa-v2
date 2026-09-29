@@ -1,0 +1,16 @@
+# secrets
+.env
+# everything the pipeline produces (large, regenerated on the cluster)
+logs/
+runs/
+executed/
+RESULT/
+EVALS/
+MODEL_TRAINING/
+analysis_output/
+hf_cache/
+tools/
+# python / jupyter noise
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
