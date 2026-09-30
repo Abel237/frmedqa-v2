@@ -5,6 +5,8 @@
 #
 #   bash cluster/submit_pipeline.sh                # everything
 #   SKIP="nb1 nb2-ppl nb2-noppl" bash cluster/submit_pipeline.sh   # reuse finished stages
+#   SKIP="nb1 nb5a" DEP_nb5a=13214 bash cluster/submit_pipeline.sh   # skip a stage that is still
+#                         queued/running, and make later jobs wait for that existing job
 set -euo pipefail
 cd "$(dirname "$0")/.."; PROJECT_DIR="$(pwd)"
 set -a; source .env; set +a
@@ -16,7 +18,12 @@ RECORD="logs/pipeline_$(date +%Y%m%d_%H%M%S).txt"
 join_deps() { local out=""; for d in "$@"; do [ -n "$d" ] && out="${out:+$out:}$d"; done; echo "$out"; }
 sub() {  # sub NAME MEM "DEP1 DEP2" NOTEBOOKS SCOPE [SEED]
   local name=$1 mem=$2 deps; deps=$(join_deps $3); shift 3
-  if [[ "$SKIP" == *" $name "* ]]; then echo "  skip  $name" >&2; echo ""; return; fi
+  if [[ "$SKIP" == *" $name "* ]]; then
+    local var="DEP_${name//-/_}"; local reuse="${!var:-}"
+    if [ -n "$reuse" ]; then echo "  skip  $name  (later jobs wait for existing job $reuse)" | tee -a "$RECORD" >&2
+    else echo "  skip  $name" | tee -a "$RECORD" >&2; fi
+    echo "$reuse"; return
+  fi
   local dep=(); [ -n "$deps" ] && dep=(--dependency="afterok:$deps" --kill-on-invalid-dep=yes)
   local id
   id=$(sbatch --parsable --job-name="fm-$name" "${dep[@]}" --mem="$mem" "${MAILOPT[@]}" \

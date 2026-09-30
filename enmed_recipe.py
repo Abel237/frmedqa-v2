@@ -66,6 +66,28 @@ def take_longest_string_field(ex: Dict[str, Any], min_chars: int = 80) -> Option
     return cands[0][1]
 
 
+def _training_rows(ds, label, log):
+    """Return an iterable of TRAINING rows for one loaded source.
+
+    `load_dataset` without a `split` returns a dict of splits; iterating it yields
+    the split NAMES (strings), not rows. Keep only training data: never test /
+    validation splits, which can overlap with the QA evaluation sets.
+    Returns None when the source has no training split.
+    """
+    import itertools
+    if not isinstance(ds, dict):          # already a single split
+        return ds
+    keys = list(ds.keys())
+    use = [k for k in keys if k.lower() in ("train", "training")]
+    if not use:
+        use = [k for k in keys if not re.search(r"test|valid|dev|eval", k, flags=re.I)]
+    if not use:
+        log.warning(f"  [harvest] skip {label}: no training split (splits: {keys})")
+        return None
+    log.info(f"  [harvest] {label}: using split(s) {use} of {keys}")
+    return itertools.chain.from_iterable(ds[k] for k in use)
+
+
 def harvest_streaming(
     sources: Sequence[Dict[str, Any]],
     *,
@@ -108,17 +130,29 @@ def harvest_streaming(
             log.warning(f"  [harvest] skip {label}: {e}")
             continue
 
+        rows = _training_rows(ds, label, log)
+        if rows is None:
+            continue
         n_before = len(out)
-        it = tqdm(ds, desc=f"  harvest:{label}", leave=False) if progress else ds
-        for ex in it:
-            if token_budget is not None and used_tokens >= token_budget:
-                break
-            t = extract_fn(ex)
-            if not t:
-                continue
-            t = t[:max_doc_chars]
-            out.append(t)
-            used_tokens += _approx_tokens(t)
+        it = tqdm(rows, desc=f"  harvest:{label}", leave=False) if progress else rows
+        try:
+            for ex in it:
+                if token_budget is not None and used_tokens >= token_budget:
+                    break
+                if isinstance(ex, str):          # plain-text rows
+                    t = ex if len(ex) > 80 else None
+                elif isinstance(ex, dict):
+                    t = extract_fn(ex)
+                else:
+                    continue
+                if not t:
+                    continue
+                t = t[:max_doc_chars]
+                out.append(t)
+                used_tokens += _approx_tokens(t)
+        except Exception as e:                   # one broken source must not kill the run
+            log.warning(f"  [harvest] {label}: stopped after "
+                        f"{len(out) - n_before:,} docs ({type(e).__name__}: {e})")
         log.info(f"  [harvest] {label}: +{len(out) - n_before:,} docs "
                  f"(cum {len(out):,} docs ≈ {used_tokens/1e6:.1f}M tok)")
 
