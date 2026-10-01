@@ -14,3 +14,4 @@ tools/
 __pycache__/
 *.pyc
 .ipynb_checkpoints/
+unsloth_compiled_cache/
