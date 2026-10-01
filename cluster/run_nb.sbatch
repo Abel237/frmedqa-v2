@@ -4,7 +4,7 @@
 #SBATCH --gres=gpu:1
 #SBATCH --cpus-per-task=10
 #SBATCH --mem=48G
-#SBATCH --time=5-00:00:00
+#SBATCH --time=14-00:00:00
 #SBATCH --requeue
 #SBATCH --open-mode=append
 #SBATCH --signal=B:USR1@900
