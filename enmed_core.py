@@ -868,25 +868,35 @@ if __name__ == "__main__":
 # ═══════════════════════════════════════════════════════════════════════════
 # Precision-aware loading and LoRA merging
 # ═══════════════════════════════════════════════════════════════════════════
-def load_model(cfg, model_name, max_seq_length=None, logger=None):
-    """Load a Qwen3 checkpoint for training or inference at cfg.precision.
+def load_model(cfg, model_name, max_seq_length=None, logger=None, load_in_4bit=None):
+    """Load a checkpoint for training or inference.
 
-    qlora → weights quantized on load to 4-bit NF4, bf16 compute (QLoRA).
-    bf16  → weights kept in bf16.
-    The checkpoint itself must be a 16-bit one (never pre-quantized).
+    By default the precision is cfg.precision (qlora → 4-bit NF4 quantized on
+    load; bf16 → bf16), the same for every model in the comparison.
+    `load_in_4bit` overrides it for one model (e.g. an external baseline too
+    large for the GPU in bf16). Text models load with FastLanguageModel;
+    checkpoints packaged as multimodal (e.g. Ministral 3, Gemma-3 based) fall
+    back to Unsloth's FastModel, which may return a processor instead of a
+    tokenizer.
     """
     import torch
-    from unsloth import FastLanguageModel
+    log = logger.info if logger else print
     token = os.environ.get("HF_TOKEN") or None
-    model, tokenizer = FastLanguageModel.from_pretrained(
-        model_name=model_name,
-        max_seq_length=max_seq_length or cfg.max_seq_length,
-        load_in_4bit=cfg.load_in_4bit,
-        dtype=torch.bfloat16,
-        token=token, cache_dir=cfg.cache_dir,
-        device_map={"": 0},
-    )
-    describe_precision(model, cfg, logger=logger)
+    q4 = cfg.load_in_4bit if load_in_4bit is None else bool(load_in_4bit)
+    kw = dict(model_name=model_name, max_seq_length=max_seq_length or cfg.max_seq_length,
+              load_in_4bit=q4, dtype=torch.bfloat16, token=token, device_map={"": 0})
+    try:
+        from unsloth import FastLanguageModel
+        model, tokenizer = FastLanguageModel.from_pretrained(cache_dir=cfg.cache_dir, **kw)
+    except Exception as e:
+        log(f"  FastLanguageModel could not load {model_name} ({type(e).__name__}: {str(e)[:150]}); "
+            f"trying FastModel (multimodal-packaged checkpoints)")
+        from unsloth import FastModel
+        model, tokenizer = FastModel.from_pretrained(**kw)
+    if load_in_4bit is None:
+        describe_precision(model, cfg, logger=logger)
+    else:
+        log(f"  {model_name}: loaded in {'4-bit NF4' if q4 else 'bf16'} (per-model override)")
     return model, tokenizer
 
 

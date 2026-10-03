@@ -17,8 +17,9 @@ done
 for d in "$P"/MODEL_TRAINING/*-merged-bf16; do
   [ -d "$d" ] && ln -sfn "$d" "$R/MODEL_TRAINING/$(basename "$d")"
 done
-# vanilla evaluations are seed-independent (run once by NB5a): copied in
-for f in "$P"/EVALS/results_cache/Qwen3-14B-vanilla__*.json; do
+# NB5a evaluations (vanilla reference + external baselines) are seed-independent:
+# copied in once (the shared cache only ever contains NB5a results)
+for f in "$P"/EVALS/results_cache/*.json; do
   [ -e "$f" ] && [ ! -e "$R/EVALS/results_cache/$(basename "$f")" ] && cp "$f" "$R/EVALS/results_cache/"
 done
 true
