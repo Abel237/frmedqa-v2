@@ -987,8 +987,6 @@ def hub_has_model(repo_id) -> bool:
         return file_exists(repo_id, "config.json", token=os.environ.get("HF_TOKEN") or None)
     except Exception:
         return False
-    del base, merged; gc.collect()
-    return out_dir
 
 
 
