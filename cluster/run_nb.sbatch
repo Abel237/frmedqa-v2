@@ -19,7 +19,10 @@ source cluster/common.sh
 
 if [ "$SCOPE" = "seed" ]; then
   export FRMEDQA_SEED="$SEED"
-  bash cluster/prepare_seed_dir.sh "$SEED"
+  if ! bash cluster/prepare_seed_dir.sh "$SEED"; then
+    python cluster/notify.py send --subject "[frmedqa] FAILED $SLURM_JOB_NAME: could not prepare runs/seed$SEED (disk quota?)" --tail 20 || true
+    exit 1
+  fi
   export FRMEDQA_BASE="$PROJECT_DIR/runs/seed$SEED"
 else
   unset FRMEDQA_SEED
