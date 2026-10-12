@@ -12,3 +12,11 @@ export PYTHONUNBUFFERED=1 TOKENIZERS_PARALLELISM=false
 export JUPYTER_RUNTIME_DIR="${FRMEDQA_TMP}/jupyter-runtime"
 if [ -z "${WANDB_API_KEY:-}" ]; then export WANDB_DISABLED=true WANDB_MODE=disabled; fi
 module load cuda 2>/dev/null || true      # nvcc for the llama.cpp judge build (conda toolkit also works)
+
+# Freeze the core ML stack: any "pip install" a notebook runs during a job
+# must keep these exact versions (a notebook once upgraded transformers and
+# broke unsloth for every later job). Create / refresh the file with:
+#   bash cluster/freeze_core.sh
+if [ -s "$PROJECT_DIR/cluster/constraints.txt" ]; then
+  export PIP_CONSTRAINT="$PROJECT_DIR/cluster/constraints.txt"
+fi

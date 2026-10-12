@@ -11,8 +11,7 @@ stops the previous server / frees the previous model first.
 Judge registry (all from the Unsloth org on Hugging Face):
   pointwise : unsloth/gemma-4-12B-it-qat-GGUF   (UD-Q4_K_XL, the only text file)
               unsloth/gpt-oss-20b-GGUF           (F16)
-  pairwise  : unsloth/Muse-Glimmer-30B-unsloth-bnb-4bit  (bnb NF4, transformers)
-              unsloth/Llama-3.2-1B-Instruct-GGUF (F16)
+  pairwise  : the same two judges (PAIR_JUDGES = POINTWISE_JUDGES)
 """
 import os, re, gc, sys, time, json, glob, shutil, tarfile, subprocess
 
